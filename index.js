@@ -100,13 +100,16 @@ class ApiClient {
 
     _request() {
         let apiClient = this;
+        let numArgs = _.size(arguments);
         let defaultMethod = _.last(arguments);
-        let args = _.slice(arguments, 0, -1);
+
+        let args = _.slice(arguments, 0, numArgs - 1);
+        numArgs = _.size(args);
         let configObjectArgs = _.takeRightWhile(args, arg => {
             return _.isPlainObject(arg) || _.isNil(arg)
         });
         let numConfigObjectArgs = _.size(configObjectArgs);
-        let resolveUrlArgs = _.slice(args, -numConfigObjectArgs);
+        let resolveUrlArgs = _.slice(args, 0, numArgs - numConfigObjectArgs);
 
         return ApiClient._deepResolve(configObjectArgs)
             .then(function (resolvedConfigObjectArgs) {
@@ -116,19 +119,37 @@ class ApiClient {
                     config = {};
 
                 if (numConfigObjectArgs === 1) {
-                    config = resolvedConfigObjectArgs[0];
+                    if (!_.isNil(resolvedConfigObjectArgs[0])) {
+                        config = resolvedConfigObjectArgs[0];
+                    }
                 } else if (numConfigObjectArgs === 2) {
-                    config = resolvedConfigObjectArgs[1];
+                    if (!_.isNil(resolvedConfigObjectArgs[1])) {
+                        config = resolvedConfigObjectArgs[1];
+                    }
+
                     let method = _.get(config, 'method', defaultMethod).toLowerCase();
-                    if (method === 'put' || method === 'post' || method === 'patch') {
-                        data = resolvedConfigObjectArgs[0];
-                    } else {
+
+                    if (!_.isNil(resolvedConfigObjectArgs[0])) {
+                        if (method === 'put' || method === 'post' || method === 'patch') {
+                            data = resolvedConfigObjectArgs[0];
+                        } else {
+                            params = resolvedConfigObjectArgs[0];
+                        }
+                    }
+
+                } else {
+                    if (!_.isNil(resolvedConfigObjectArgs[0])) {
                         params = resolvedConfigObjectArgs[0];
                     }
-                } else {
-                    params = resolvedConfigObjectArgs[0];
-                    data = resolvedConfigObjectArgs[1];
+                    if (!_.isNil(resolvedConfigObjectArgs[1])) {
+                        data = resolvedConfigObjectArgs[1];
+                    }
+
                     config = _.assign({}, ..._.slice(resolvedConfigObjectArgs, 2));
+                }
+
+                if (_.isNil(config)) {
+                    config = {};
                 }
 
                 _.defaults(config, {url, method, data, params});
@@ -147,7 +168,10 @@ class ApiClient {
 
                 apiClient._authenticate(config);
 
-                return axios.request(config);
+                return axios.request(config)
+                    .then(function (response) {
+                        return _.get(response, 'data');
+                    });
             });
     }
 
