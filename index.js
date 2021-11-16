@@ -61,11 +61,10 @@ class ApiClient {
 
     _buildUrl() {
         let resolvedUrl = new URL(this._basePath, `${this._protocol}://${this._hostname}:${this._port}`);
+        let args = _.flattenDeep(arguments);
+        let relativePath = _.join(args, '/');
+        resolvedUrl = new URL(relativePath, resolvedUrl);
         resolvedUrl = resolvedUrl.toString();
-        _.each(_.flattenDeep(arguments), function (argument) {
-            resolvedUrl = new URL(`./${argument}`, resolvedUrl);
-            resolvedUrl = resolvedUrl.toString();
-        });
         return resolvedUrl;
     }
 
