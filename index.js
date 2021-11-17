@@ -153,7 +153,7 @@ class ApiClient {
 
                 _.defaults(config, {url, method, data, params});
 
-                let contentTypeHeaderKey = _.findKey(_.get(config, ['headers']), (key) => _.lowerCase(key) === 'content-type');
+                let contentTypeHeaderKey = _.find(_.keys(_.get(config, ['headers'])), (key) => _.lowerCase(key) === 'content-type');
                 let contentTypeHeader = _.get(config, ['headers', contentTypeHeaderKey]);
                 data = _.get(config, 'data');
                 if (contentTypeHeader === 'multipart/form-data' && !_.isNil(data)) {
