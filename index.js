@@ -153,7 +153,8 @@ class ApiClient {
 
                 _.defaults(config, {url, method, data, params});
 
-                let contentTypeHeader = _.get(config, ['headers', 'content-type']);
+                let contentTypeHeaderKey = _.findKey(_.get(config, ['headers']), (key) => _.lowerCase(key) === 'content-type');
+                let contentTypeHeader = _.get(config, ['headers', contentTypeHeaderKey]);
                 data = _.get(config, 'data');
                 if (contentTypeHeader === 'multipart/form-data' && !_.isNil(data)) {
                     if (!(data instanceof FormData)) {
@@ -161,8 +162,8 @@ class ApiClient {
                         _.set(config, 'data', data);
                     }
 
-                    let formDataHeaders = data.getHeaders(_.get(config, ['headers'], {}));
-                    _.set(config, 'headers', formDataHeaders);
+                    let formDataHeaders = data.getHeaders();
+                    _.set(config, 'headers', _.merge({}, _.get(config, 'headers', {}), formDataHeaders));
                 }
 
                 apiClient._authenticate(config);
