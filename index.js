@@ -3,22 +3,26 @@ const _ = require('lodash');
 const axios = require('axios');
 const FormData = require('form-data')
 
+/**
+ * @callback authCallback
+ * @param {axios.AxiosRequestConfig} config
+ */
+
 class ApiClient {
     /**
      *
-     * @param params
-     * @param params.baseUrl
-     * @param params.hostname
-     * @param params.port
-     * @param params.protocol
-     * @param params.pathname
-     * @param params.authCallback
-     * @param params.token
-     * @param params.username
-     * @param params.password
-     * @param params.baseUrl
-     * @param params.authHeaders
-     * @param params.credentials
+     * @param {Object} params Configuration for ApiClient
+     * @param {string} params.baseUrl Base URL to resolve URL slugs. If baseUrl is not defined, uses hostname, port, protocol and pathname to construct Base URL.
+     * @param {string} params.hostname Hostname of API endpoint.
+     * @param {number} params.port Port of API endpoint.
+     * @param {string} params.protocol Protocol of API endpoint.
+     * @param {string} params.pathname Path of API endpoint.
+     * @param {authCallback} params.authCallback Function to modify request to include authentication credentials.
+     * @param {string} params.token If token is supplied, uses Authorization bearer token access header to authenticate request.
+     * @param {string} params.username If username and password is supplied, uses HTTP Basic authentication access header to authenticate request.
+     * @param {string} params.password If username and password is supplied, uses HTTP Basic authentication access header to authenticate request.
+     * @param {Object.<string,string>} params.authHeaders If supplied, uses custom headers to authenticate request.
+     * @param {object} params.credentials  If supplied, sets the authentication credentials for the ApiClient. ApiClient will follow above behaviour for token, username+password or authHeaders to authenticate the request.
      */
     constructor(params) {
         let baseUrl = _.get(params, 'baseUrl');
@@ -55,19 +59,27 @@ class ApiClient {
         } else {
             this._credentials = _.get(params, 'credentials', {});
         }
-
-
     }
 
-    _buildUrl() {
-        let resolvedUrl = new URL(this._basePath, `${this._protocol}://${this._hostname}:${this._port}`);
+    /**
+     * @param {...(string|string[])} urlSlugs URL slugs to append to API client base URL.
+     * @returns {string}
+     * @private
+     */
+    _buildUrl(urlSlugs) {
+        let baseUrl = new URL(this._basePath, `${this._protocol}://${this._hostname}:${this._port}`);
         let args = _.flattenDeep(arguments);
         let relativePath = './' + _.join(args, '/');
-        resolvedUrl = new URL(relativePath, resolvedUrl);
-        resolvedUrl = resolvedUrl.toString();
-        return resolvedUrl;
+        let resolvedUrl = new URL(relativePath, baseUrl);
+        return resolvedUrl.toString();
     }
 
+    /**
+     * Adds Authentication to a Request
+     * @param {axios.AxiosRequestConfig} config
+     * @returns {axios.AxiosRequestConfig}
+     * @private
+     */
     _authenticate(config) {
 
         if (_.isNil(config)) {
@@ -97,7 +109,14 @@ class ApiClient {
     }
 
 
-    _request() {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [paramsOrData] Depending on the config request method, this object will be used as the params or data for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _parseArgs(urlSlugs, paramsOrData, config) {
         let apiClient = this;
         let numArgs = _.size(arguments);
         let defaultMethod = _.last(arguments);
@@ -152,10 +171,18 @@ class ApiClient {
                 }
 
                 _.defaults(config, {url, method, data, params});
+                return config;
+            });
+    }
 
+
+    _request() {
+        let apiClient = this;
+        return apiClient._parseArgs(...arguments)
+            .then(function (config) {
                 let contentTypeHeaderKey = _.find(_.keys(_.get(config, ['headers'])), (key) => _.toLower(key) === 'content-type');
                 let contentTypeHeader = _.get(config, ['headers', contentTypeHeaderKey]);
-                data = _.get(config, 'data');
+                let data = _.get(config, 'data');
                 if (contentTypeHeader === 'multipart/form-data' && !_.isNil(data)) {
                     if (!(data instanceof FormData)) {
                         data = ApiClient._serializeObjectToFormData(data);
@@ -170,11 +197,36 @@ class ApiClient {
 
                 return axios.request(config)
                     .then(function (response) {
-                        return _.get(response, 'data');
+                        let responseData = _.get(response, 'data');
+                        let paginationCallback = _.get(config, 'paginationCallback');
+                        if (!_.isNil(paginationCallback)) {
+
+                            let responseDataArray = [responseData];
+                            let nextConfig = paginationCallback(responseData, config);
+
+                            function paginationRequest(config) {
+                                return axios.request(config)
+                                    .then(function (paginationResponse) {
+                                        let paginationResponseData = _.get(paginationResponse, 'data');
+                                        responseDataArray.push(paginationResponseData);
+                                        let nextConfig = paginationCallback(paginationResponseData, config);
+                                        if (!_.isNil(nextConfig)) {
+                                            return paginationRequest(config);
+                                        }
+                                    })
+                            }
+
+                            let nextRequestPromise = _.isNil(nextConfig) ? Promise.resolve() : paginationRequest(nextConfig);
+
+                            return nextRequestPromise
+                                .then(function () {
+                                    return responseDataArray;
+                                })
+
+                        }
                     });
             });
     }
-
 
     _get() {
         return this._request(...arguments, 'get');
