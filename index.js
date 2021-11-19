@@ -224,6 +224,8 @@ class ApiClient {
                                 })
 
                         }
+                        
+                        return responseData;
                     });
             });
     }
