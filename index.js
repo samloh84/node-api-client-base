@@ -18,11 +18,11 @@ class ApiClient {
      * @param {string} params.protocol Protocol of API endpoint.
      * @param {string} params.pathname Path of API endpoint.
      * @param {authCallback} params.authCallback Function to modify request to include authentication credentials.
-     * @param {string} params.token If token is supplied, uses Authorization bearer token access header to authenticate request.
-     * @param {string} params.username If username and password is supplied, uses HTTP Basic authentication access header to authenticate request.
-     * @param {string} params.password If username and password is supplied, uses HTTP Basic authentication access header to authenticate request.
-     * @param {Object.<string,string>} params.authHeaders If supplied, uses custom headers to authenticate request.
-     * @param {object} params.credentials  If supplied, sets the authentication credentials for the ApiClient. ApiClient will follow above behaviour for token, username+password or authHeaders to authenticate the request.
+     * @param {object} params.credentials  If supplied, sets the authentication credentials for the ApiClient.
+     * @param {string} params.credentials.token If token is supplied, uses Authorization bearer token access header to authenticate request.
+     * @param {string} params.credentials.username If username and password is supplied, uses HTTP Basic authentication access header to authenticate request.
+     * @param {string} params.credentials.password If username and password is supplied, uses HTTP Basic authentication access header to authenticate request.
+     * @param {Object.<string,string>} params.credentials.authHeaders If supplied, uses custom headers to authenticate request.
      */
     constructor(params) {
         let baseUrl = _.get(params, 'baseUrl');
@@ -37,7 +37,7 @@ class ApiClient {
             this._hostname = _.get(params, 'hostname');
             this._port = _.get(params, 'port', 443);
             this._basePath = _.get(params, 'basePath');
-            this._protocol = _.get(params, 'protocol', 'https')
+            this._protocol = _.get(params, 'protocol', 'https:')
         }
 
 
@@ -67,7 +67,7 @@ class ApiClient {
      * @private
      */
     _buildUrl(urlSlugs) {
-        let baseUrl = new URL(this._basePath, `${this._protocol}://${this._hostname}:${this._port}`);
+        let baseUrl = new URL(this._basePath, `${this._protocol}//${this._hostname}:${this._port}`);
         let args = _.flattenDeep(arguments);
         let relativePath = './' + _.join(args, '/');
         let resolvedUrl = new URL(relativePath, baseUrl);
@@ -176,7 +176,15 @@ class ApiClient {
     }
 
 
-    _request() {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [paramsOrData] Depending on the config request method, this object will be used as the params or data for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @param {string} method Method of request
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _request(urlSlugs, paramsOrData, config, method) {
         let apiClient = this;
         return apiClient._parseArgs(...arguments)
             .then(function (config) {
@@ -224,42 +232,98 @@ class ApiClient {
                                 })
 
                         }
-                        
+
                         return responseData;
                     });
             });
     }
 
-    _get() {
+
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [params] Query params for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _get(urlSlugs, params, config) {
         return this._request(...arguments, 'get');
     }
 
-    _head(urlPath, params, config) {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [params] Query params for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _head(urlSlugs, params, config) {
         return this._request(...arguments, 'head');
 
     }
 
-    _delete(urlPath, params, config) {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [params] Query params for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _delete(urlSlugs, params, config) {
         return this._request(...arguments, 'delete');
     }
 
-    _options(urlPath, params, config) {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [params] Query params for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _options(urlSlugs, params, config) {
         return this._request(...arguments, 'options');
     }
 
-    _put(urlPath, data, config) {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [data] Data for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _put(urlSlugs, data, config) {
         return this._request(...arguments, 'put');
     }
 
-    _post(urlPath, data, config) {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [data] Data for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _post(urlSlugs, data, config) {
         return this._request(...arguments, 'post');
     }
 
-    _patch(urlPath, data, config) {
+    /**
+     * @param {(string|string[])} [urlSlugs] URL slugs to append to API client base URL.
+     * @param {object} [data] Data for the Request
+     * @param {axios.AxiosRequestConfig} [config] Request config objects
+     * @returns {PromiseLike<axios.AxiosRequestConfig> | Promise<axios.AxiosRequestConfig>}
+     * @private
+     */
+    _patch(urlSlugs, data, config) {
         return this._request(...arguments, 'patch');
     }
 
 
+    /**
+     *
+     * @param {(object|object[]|Promise.<object>|Promise.<object[]>)} object Object
+     * @returns {Promise.<object|object[]>}
+     * @private
+     */
     static _deepResolve(object) {
         if (_.isPlainObject(object)) {
             return Promise.props(_.mapValues(object, ApiClient._deepResolve));
